@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+.env
+*.log
+.DS_Store
+
+# Credentials: live tokens and cookies. Never commit.
+deepseek-auth.json
+deepseek-accounts.json
+data/accounts/*.json
+.chrome-profile*/

@@ -1,0 +1,32 @@
+{
+  "name": "dsproxy",
+  "version": "0.1.0",
+  "description": "Local OpenAI / Anthropic / Responses compatible proxy for the DeepSeek web chat",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/cli.js",
+  "packageManager": "pnpm@10.33.2",
+  "bin": {
+    "dsproxy": "dist/cli.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx src/cli.ts serve",
+    "start": "node dist/cli.js serve",
+    "auth": "tsx src/cli.ts auth",
+    "doctor": "tsx src/cli.ts doctor",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

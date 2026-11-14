@@ -1,0 +1,9 @@
+# Allow-list: only what the image build needs.
+*
+!Containerfile
+!.containerignore
+!package.json
+!package-lock.json
+!tsconfig.json
+!tsconfig.build.json
+!src
