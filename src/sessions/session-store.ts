@@ -1,4 +1,5 @@
 import type { MessageId } from "../deepseek/stream-parser.js";
+import type { ClientPrefix } from "./client-prefix.js";
 
 export interface Exchange {
   user: string;
@@ -16,6 +17,8 @@ export interface ChatSession {
   /** Local recovery history, replayed into a fresh remote session when needed */
   history: Exchange[];
   lastActivityAt: number;
+  /** Client messages already in the remote chat (stateless clients); see client-prefix.ts */
+  clientPrefix: ClientPrefix | null;
 }
 
 export interface FailedRemoteSession {
@@ -51,6 +54,7 @@ export function createSession(now = Date.now()): ChatSession {
     accountId: null,
     history: [],
     lastActivityAt: now,
+    clientPrefix: null,
   };
 }
 

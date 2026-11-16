@@ -22,6 +22,10 @@ import {
   type ChatSession,
   type SessionStore,
 } from "../sessions/session-store.js";
+import {
+  newMessagesSince,
+  recordClientPrefix,
+} from "../sessions/client-prefix.js";
 import { looksLikeToolCallMarkup, parseToolCall } from "../tools/parser.js";
 import type {
   AssistantTurn,
@@ -153,7 +157,8 @@ export class CompletionService {
       );
 
     // Local history is only injected into a fresh remote chat, and never duplicates client history
-    const recoveryPrefix = hasExplicitHistory(request.messages)
+    const explicitHistory = hasExplicitHistory(request.messages);
+    const recoveryPrefix = explicitHistory
       ? ""
       : buildRecoveryHistoryPrefix(session.history);
     const parts: PromptParts = {
@@ -161,7 +166,32 @@ export class CompletionService {
       historyPrefix: session.id ? "" : recoveryPrefix,
       conversation,
     };
-    const initial = buildBoundedPrompt(parts, maxChars);
+
+    // Stateless clients resend their whole history. The chained remote chat
+    // already holds it, so only the new messages go upstream; when the history
+    // does not extend what was sent, start over in a new remote chat instead
+    let initialParts = parts;
+    if (explicitHistory && session.id !== null) {
+      const delta = newMessagesSince(
+        session.clientPrefix,
+        session.id,
+        request.messages,
+        request.tools,
+      );
+      if (delta) {
+        initialParts = {
+          system: "",
+          historyPrefix: "",
+          conversation: formatConversation(delta, [], maxChars).conversation,
+        };
+      } else {
+        this.log.info(
+          `${tag} client history does not extend remote session ${session.id}; starting a new one`,
+        );
+        resetRemoteSession(session);
+      }
+    }
+    const initial = buildBoundedPrompt(initialParts, maxChars);
     const fresh = buildBoundedPrompt(
       { ...parts, historyPrefix: recoveryPrefix },
       maxChars,
@@ -213,6 +243,12 @@ export class CompletionService {
       conversation,
       toolCall ? formatToolCallEnvelope(toolCall) : attempt.state.content,
     );
+    // Retries above may have moved the turn to another remote chat: record
+    // against whichever chat now holds this request and its reply
+    session.clientPrefix =
+      session.id === null
+        ? null
+        : recordClientPrefix(session.id, request.messages, request.tools);
 
     const finish: FinishReason = toolCall
       ? "tool_calls"
