@@ -3,7 +3,7 @@ declare namespace WebAssembly {
   interface Memory {
     readonly buffer: ArrayBuffer;
   }
-  interface Module { }
+  interface Module {}
   interface Instance {
     readonly exports: Record<string, unknown>;
   }

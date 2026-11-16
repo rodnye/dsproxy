@@ -32,6 +32,7 @@ import type {
   ToolDefinition,
 } from "../types.js";
 import { estimateTokens, isBlank, stripLoneSurrogates } from "../util/text.js";
+import { KeyedLock } from "../util/keyed-lock.js";
 import { sleep } from "../util/time.js";
 import type { ChatRunner } from "./chat-runner.js";
 import { classifyRecoveryFailure, isContextTooLongError } from "./recovery.js";
@@ -77,6 +78,7 @@ const CONTINUE_INSTRUCTION =
  */
 export class CompletionService {
   private readonly log = createLogger("completion");
+  private readonly agentLocks = new KeyedLock();
 
   constructor(
     private readonly config: Config,
@@ -84,7 +86,26 @@ export class CompletionService {
     private readonly runner: ChatRunner,
   ) {}
 
+  /**
+   * Turns of one agent are serialized: they share a remote chat whose
+   * parent_message_id chain breaks (forks) if two turns run concurrently
+   */
   async complete(
+    request: NormalizedRequest,
+    ctx: RequestContext,
+  ): Promise<AssistantTurn> {
+    return this.agentLocks.run(ctx.agentId, () => {
+      // The client may have left while this turn was queued behind another
+      if (ctx.isClientGone())
+        throw new ProxyError("Client closed the request", {
+          status: 499,
+          type: "client_closed_request",
+        });
+      return this.completeTurn(request, ctx);
+    });
+  }
+
+  private async completeTurn(
     request: NormalizedRequest,
     ctx: RequestContext,
   ): Promise<AssistantTurn> {
